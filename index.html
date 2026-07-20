@@ -1,0 +1,1660 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Retail Sales Intelligence Portal</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+              display: ["Space Grotesk", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"]
+            }
+          }
+        }
+      }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+      /* Custom minimal scrollbars */
+      ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      /* Soft fade in animation */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.4s ease-out forwards;
+      }
+    </style>
+  </head>
+  <body class="bg-[#fafafa] text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header id="app-header" class="bg-white border-b border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-2.5">
+          <div class="p-1.5 bg-indigo-50 rounded text-indigo-600">
+            <i data-lucide="trending-up" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h1 id="app-title" class="text-base font-black tracking-tight text-slate-900 flex items-center gap-2 font-display">
+              RETAIL INTELLIGENCE
+              <span class="text-[9px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full border border-slate-200">
+                v1.2 Standalone
+              </span>
+            </h1>
+            <p id="app-subtitle" class="text-[11px] text-slate-400 mt-0.5 font-semibold uppercase tracking-wide">
+              Sales performance, returns analysis &amp; stock alert engine
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-mono font-bold text-slate-400 uppercase bg-slate-50 px-2.5 py-1.5 rounded border border-slate-100 flex items-center gap-1.5">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            Source Joint
+          </span>
+          <span class="text-[10px] font-mono font-bold text-slate-400 uppercase bg-slate-50 px-2.5 py-1.5 rounded border border-slate-100 flex items-center gap-1.5">
+            <i data-lucide="award" class="w-3.5 h-3.5 text-emerald-500"></i>
+            Verified
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="app-main-content" class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex-1 w-full">
+      
+      <!-- File Upload / Data Source Section -->
+      <div id="file-upload-container" class="bg-white rounded-xl border border-slate-200 p-5 mb-6 transition-all">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 id="upload-section-title" class="text-sm font-bold text-slate-900 flex items-center gap-2 font-display">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-indigo-600"></i>
+              Data Source Management
+            </h2>
+            <p class="text-[11px] text-slate-500 font-medium">
+              Upload retail weekly sales and store master files to analyze custom business data.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              id="btn-reset-fallback"
+              onclick="resetToSample()"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-bold rounded border transition-all uppercase tracking-wider bg-white text-slate-700 border-slate-300 hover:bg-slate-50 active:bg-slate-100"
+            >
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              Reset to Sample Data
+            </button>
+            <div class="flex gap-2">
+              <button
+                id="btn-download-sales-template"
+                onclick="downloadTemplate('sales')"
+                class="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 font-bold rounded transition-all uppercase tracking-wider"
+                title="Download weekly sales Excel template"
+              >
+                <i data-lucide="download" class="w-3 h-3"></i>
+                Sales Template
+              </button>
+              <button
+                id="btn-download-store-template"
+                onclick="downloadTemplate('stores')"
+                class="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 font-bold rounded transition-all uppercase tracking-wider"
+                title="Download store master Excel template"
+              >
+                <i data-lucide="download" class="w-3 h-3"></i>
+                Store Template
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Upload Retail Weekly Sales -->
+          <div id="upload-weekly-sales-zone" class="relative group">
+            <label class="block text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2">
+              1. Retail Weekly Sales File <span class="text-indigo-500 font-bold">*</span>
+            </label>
+            <div
+              id="sales-dropzone"
+              class="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-slate-200 hover:border-indigo-300 hover:bg-slate-50/30"
+              onclick="document.getElementById('sales-file-input').click()"
+            >
+              <input
+                id="sales-file-input"
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                class="hidden"
+                onchange="handleSalesUpload(event)"
+              />
+              <div id="sales-zone-content" class="text-center">
+                <i data-lucide="upload" class="w-6 h-6 text-slate-400 mx-auto mb-2 group-hover:text-indigo-500 transition-colors"></i>
+                <p class="text-xs font-bold text-slate-600 group-hover:text-indigo-600 text-center">
+                  Click or drag file to upload
+                </p>
+                <p class="text-[10px] text-slate-400 mt-0.5 text-center">
+                  Supports weekly_sales (.xlsx, .xls, .csv)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upload Store Master -->
+          <div id="upload-store-master-zone" class="relative group">
+            <label class="block text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2">
+              2. Store Master File <span class="text-indigo-500 font-bold">*</span>
+            </label>
+            <div
+              id="stores-dropzone"
+              class="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-slate-200 hover:border-indigo-300 hover:bg-slate-50/30"
+              onclick="document.getElementById('stores-file-input').click()"
+            >
+              <input
+                id="stores-file-input"
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                class="hidden"
+                onchange="handleStoresUpload(event)"
+              />
+              <div id="stores-zone-content" class="text-center">
+                <i data-lucide="upload" class="w-6 h-6 text-slate-400 mx-auto mb-2 group-hover:text-indigo-500 transition-colors"></i>
+                <p class="text-xs font-bold text-slate-600 group-hover:text-indigo-600 text-center">
+                  Click or drag file to upload
+                </p>
+                <p class="text-[10px] text-slate-400 mt-0.5 text-center">
+                  Supports store_master (.xlsx, .xls, .csv)
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Source Active Banner -->
+        <div id="fallback-data-banner" class="mt-3 flex items-center gap-2 px-3 py-2.5 bg-indigo-50/50 rounded-lg border border-indigo-100 text-indigo-900 text-[11px] font-medium">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
+          <span id="banner-text">
+            <strong>Running on pre-loaded fallback data:</strong> The dashboard is fully functional. Currently tracking <strong>160 weekly sales records</strong> across <strong>8 store master locations</strong>. Upload spreadsheets to analyze live data.
+          </span>
+        </div>
+      </div>
+
+      <!-- Filters Section -->
+      <div id="filter-section-container" class="bg-white rounded-xl border border-slate-200 p-5 mb-6 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="bg-indigo-50 text-indigo-600 p-1 rounded">
+              <i data-lucide="filter" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 id="filter-title" class="font-bold text-slate-900 text-sm font-display">Interactive Filters</h3>
+              <p class="text-[11px] text-slate-500 font-medium">Refine the whole retail dashboard dynamically</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 self-end sm:self-auto">
+            <span class="text-[10px] font-mono font-bold text-slate-400 uppercase flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
+              <i data-lucide="eye" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span id="filter-status-count">Showing 160 of 160 records</span>
+            </span>
+            <button
+              id="btn-clear-filters"
+              onclick="clearFilters()"
+              class="hidden flex items-center gap-1 text-[10px] text-red-600 bg-red-50 hover:bg-red-100 font-bold px-2.5 py-1.5 rounded transition-all uppercase tracking-wider"
+            >
+              <i data-lucide="x" class="w-3 h-3"></i>
+              Clear Filters (<span id="clear-filters-count">0</span>)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <!-- Week Filter -->
+          <div class="flex flex-col gap-1">
+            <label for="filter-week" class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Week</label>
+            <select
+              id="filter-week"
+              onchange="setFilter('week', this.value)"
+              class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded px-2.5 py-2.5 outline-none focus:border-indigo-500 focus:bg-white transition-all font-medium cursor-pointer"
+            >
+              <option value="All">All Weeks</option>
+            </select>
+          </div>
+
+          <!-- Region Filter -->
+          <div class="flex flex-col gap-1">
+            <label for="filter-region" class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Region</label>
+            <select
+              id="filter-region"
+              onchange="setFilter('region', this.value)"
+              class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded px-2.5 py-2.5 outline-none focus:border-indigo-500 focus:bg-white transition-all font-medium cursor-pointer"
+            >
+              <option value="All">All Regions</option>
+            </select>
+          </div>
+
+          <!-- Store ID Filter -->
+          <div class="flex flex-col gap-1">
+            <label for="filter-store" class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Store ID</label>
+            <select
+              id="filter-store"
+              onchange="setFilter('storeId', this.value)"
+              class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded px-2.5 py-2.5 outline-none focus:border-indigo-500 focus:bg-white transition-all font-medium cursor-pointer"
+            >
+              <option value="All">All Stores</option>
+            </select>
+          </div>
+
+          <!-- City Filter -->
+          <div class="flex flex-col gap-1">
+            <label for="filter-city" class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">City</label>
+            <select
+              id="filter-city"
+              onchange="setFilter('city', this.value)"
+              class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded px-2.5 py-2.5 outline-none focus:border-indigo-500 focus:bg-white transition-all font-medium cursor-pointer"
+            >
+              <option value="All">All Cities</option>
+            </select>
+          </div>
+
+          <!-- Store Format Filter -->
+          <div class="flex flex-col gap-1">
+            <label for="filter-format" class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Store Format</label>
+            <select
+              id="filter-format"
+              onchange="setFilter('storeFormat', this.value)"
+              class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded px-2.5 py-2.5 outline-none focus:border-indigo-500 focus:bg-white transition-all font-medium cursor-pointer"
+            >
+              <option value="All">All Formats</option>
+            </select>
+          </div>
+
+          <!-- Product Category Filter -->
+          <div class="flex flex-col gap-1">
+            <label for="filter-category" class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Product Category</label>
+            <select
+              id="filter-category"
+              onchange="setFilter('category', this.value)"
+              class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded px-2.5 py-2.5 outline-none focus:border-indigo-500 focus:bg-white transition-all font-medium cursor-pointer"
+            >
+              <option value="All">All Categories</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Section Grid -->
+      <div id="kpis-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        
+        <!-- KPI 1: Net Sales -->
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-4 flex flex-col justify-between hover:border-indigo-200 transition-all duration-200">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Net Sales</p>
+              <div class="p-1 rounded bg-indigo-50 text-indigo-600">
+                <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <h2 id="kpi-net-sales-val" class="text-2xl font-black text-slate-800 tracking-tight font-display">$0</h2>
+            <span class="text-[10px] text-emerald-600 font-bold mt-1 inline-block">Active Filtered Net</span>
+          </div>
+          <div class="mt-3 pt-2 border-t border-slate-100 flex flex-col gap-0.5">
+            <span class="text-[9px] font-mono text-slate-400 font-semibold truncate">Gross Sales - Returns</span>
+            <span class="text-[10px] text-slate-500 truncate" title="Total revenue generated minus returns">Total revenue minus returns</span>
+          </div>
+        </div>
+
+        <!-- KPI 2: Target Achievement -->
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-4 flex flex-col justify-between hover:border-indigo-200 transition-all duration-200">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Target Achieve %</p>
+              <div class="p-1 rounded bg-amber-50 text-amber-600">
+                <i data-lucide="flame" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <h2 id="kpi-target-achievement-val" class="text-2xl font-black tracking-tight font-display text-slate-800">0%</h2>
+            <div class="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div id="kpi-target-progress-bar" class="h-full bg-indigo-500 transition-all duration-500" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="mt-3 pt-2 border-t border-slate-100 flex flex-col gap-0.5">
+            <span class="text-[9px] font-mono text-slate-400 font-semibold truncate">(Net Sales / Total Target) × 100</span>
+            <span class="text-[10px] text-slate-500 truncate" title="Progress against regional sales target">Progress against regional target</span>
+          </div>
+        </div>
+
+        <!-- KPI 3: ATV -->
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-4 flex flex-col justify-between hover:border-indigo-200 transition-all duration-200">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-tight font-display">Avg Trans. Value</p>
+              <div class="p-1 rounded bg-emerald-50 text-emerald-600">
+                <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <h2 id="kpi-atv-val" class="text-2xl font-black text-slate-800 tracking-tight font-display">$0</h2>
+            <span class="text-[10px] text-slate-500 font-bold mt-1 inline-block">Filtered ATV average</span>
+          </div>
+          <div class="mt-3 pt-2 border-t border-slate-100 flex flex-col gap-0.5">
+            <span class="text-[9px] font-mono text-slate-400 font-semibold truncate">Net Sales / Total Trans</span>
+            <span class="text-[10px] text-slate-500 truncate" title="Average customer spend per receipt">Average spend per receipt</span>
+          </div>
+        </div>
+
+        <!-- KPI 4: Return Rate -->
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-4 flex flex-col justify-between hover:border-indigo-200 transition-all duration-200">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Return Rate %</p>
+              <div class="p-1 rounded bg-rose-50 text-rose-600">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <h2 id="kpi-return-rate-val" class="text-2xl font-black text-slate-800 tracking-tight font-display">0%</h2>
+            <span id="kpi-return-rate-extra" class="text-[10px] font-bold mt-1 inline-block text-slate-400">Within safe threshold</span>
+          </div>
+          <div class="mt-3 pt-2 border-t border-slate-100 flex flex-col gap-0.5">
+            <span class="text-[9px] font-mono text-slate-400 font-semibold truncate">(Return Amount / Net Sales) × 100</span>
+            <span class="text-[10px] text-slate-500 truncate" title="Proportion of sales refunded to clients">Proportion of sales refunded</span>
+          </div>
+        </div>
+
+        <!-- KPI 5: Discount Rate -->
+        <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-4 flex flex-col justify-between hover:border-indigo-200 transition-all duration-200">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Discount Rate %</p>
+              <div class="p-1 rounded bg-sky-50 text-sky-600">
+                <i data-lucide="percent" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <h2 id="kpi-discount-rate-val" class="text-2xl font-black text-slate-800 tracking-tight font-display">0%</h2>
+            <span id="kpi-discount-rate-extra" class="text-[10px] font-bold mt-1 inline-block text-slate-400 font-bold">Healthy margins</span>
+          </div>
+          <div class="mt-3 pt-2 border-t border-slate-100 flex flex-col gap-0.5">
+            <span class="text-[9px] font-mono text-slate-400 font-semibold truncate">(Discount Amt / Gross Sales) * 100</span>
+            <span class="text-[10px] text-slate-500 truncate" title="Markdown percentage applied to sales">Markdown percentage applied</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Automated Insights & CSV Export -->
+      <div id="insights-section-container" class="bg-white rounded-xl border border-slate-200 shadow-xs p-5 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3 mb-4">
+          <div class="flex items-center gap-2">
+            <div class="bg-indigo-50 text-indigo-600 p-1 rounded">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 id="insights-section-title" class="font-bold text-slate-900 text-sm font-display">Automated Business Summary</h3>
+              <p class="text-[11px] text-slate-500 font-medium">Data-driven summaries computed instantly from your filters</p>
+            </div>
+          </div>
+          <div>
+            <button
+              id="btn-export-csv"
+              onclick="exportCSV()"
+              class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold rounded transition-all uppercase tracking-wider bg-indigo-950 text-white border border-indigo-950 hover:bg-slate-800 active:bg-slate-900"
+            >
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              Export CSV Summary
+            </button>
+          </div>
+        </div>
+
+        <div id="insights-content" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          <!-- Regional Rankings -->
+          <div class="bg-slate-50/30 rounded-lg border border-slate-100 p-4 hover:border-indigo-100 transition-colors">
+            <h4 class="font-bold text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+              <i data-lucide="trending-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+              Regional Rankings
+            </h4>
+            <div class="space-y-3" id="insight-region-box">
+              <div class="bg-white p-3 rounded border border-slate-200/60 shadow-xs">
+                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Best Region</span>
+                <p id="best-region-name" class="text-xs font-bold text-indigo-900 mt-0.5">North</p>
+                <p class="text-[10px] text-slate-500 mt-0.5">
+                  Net Sales: <strong id="best-region-sales" class="text-slate-700">$0</strong>
+                </p>
+              </div>
+              <div class="bg-white p-3 rounded border border-slate-200/60 shadow-xs">
+                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Worst Region</span>
+                <p id="worst-region-name" class="text-xs font-bold text-slate-600 mt-0.5">South</p>
+                <p class="text-[10px] text-slate-500 mt-0.5">
+                  Net Sales: <strong id="worst-region-sales" class="text-slate-700">$0</strong>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Underperforming Stores -->
+          <div class="bg-slate-50/30 rounded-lg border border-slate-100 p-4 hover:border-amber-100 transition-colors">
+            <h4 class="font-bold text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+              <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-600"></i>
+              Stores Missing Target (&lt;80%)
+            </h4>
+            <div id="insight-stores-box" class="space-y-2 max-h-52 overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- High Return Categories -->
+          <div class="bg-slate-50/30 rounded-lg border border-slate-100 p-4 hover:border-rose-100 transition-colors">
+            <h4 class="font-bold text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+              <i data-lucide="refresh-ccw" class="w-3.5 h-3.5 text-rose-600"></i>
+              High Return Categories (&gt;10%)
+            </h4>
+            <div id="insight-categories-box" class="space-y-2 max-h-52 overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        
+        <!-- Weekly Trend -->
+        <div id="chart-weekly-trend-card" class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col hover:border-indigo-100 transition-colors">
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-tight border-b border-slate-100 pb-2 mb-3 font-display">
+            Weekly Sales Trend
+          </h3>
+          <div class="relative h-60 w-full">
+            <canvas id="lineChartCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Sales by Region -->
+        <div id="chart-sales-region-card" class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col hover:border-indigo-100 transition-colors">
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-tight border-b border-slate-100 pb-2 mb-3 font-display">
+            Sales by Region
+          </h3>
+          <div class="relative h-60 w-full">
+            <canvas id="regionChartCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Category Performance -->
+        <div id="chart-category-perf-card" class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col hover:border-indigo-100 transition-colors">
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-tight border-b border-slate-100 pb-2 mb-3 font-display">
+            Category Performance
+          </h3>
+          <div class="relative h-60 w-full flex items-center justify-center">
+            <canvas id="categoryChartCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div id="chart-leaderboard-card" class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col hover:border-indigo-100 transition-colors">
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-tight border-b border-slate-100 pb-2 mb-3 font-display">
+            Store Target Achievement Leaderboard
+          </h3>
+          <div class="relative h-60 w-full">
+            <canvas id="leaderboardChartCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Stockout Risk Table -->
+        <div id="stockout-risk-container" class="bg-white rounded-xl border border-slate-200 p-4 lg:col-span-2 flex flex-col hover:border-indigo-100 transition-colors">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+            <h3 id="stockout-risk-title" class="text-[11px] font-bold text-slate-400 uppercase tracking-tight font-display">
+              Stockout Risk Table &amp; Visual Indicators
+            </h3>
+            <span id="stockout-count" class="text-[10px] font-mono font-bold text-slate-400 uppercase bg-slate-50 border border-slate-100 px-2 py-0.5 rounded">
+              0 Active Stock Alerts
+            </span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-[11px]">
+              <thead>
+                <tr class="bg-slate-50/50 text-slate-400 font-bold border-b border-slate-100 uppercase text-[9px] tracking-wider">
+                  <th class="py-2.5 px-3">Store</th>
+                  <th class="py-2.5 px-3">Category</th>
+                  <th class="py-2.5 px-3">Period</th>
+                  <th class="py-2.5 px-3 text-center">Risk Level</th>
+                  <th class="py-2.5 px-3 text-right">Net Sales Impact</th>
+                  <th class="py-2.5 px-3">Action Recommendation</th>
+                </tr>
+              </thead>
+              <tbody id="stockout-table-body" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+            <div id="stockout-empty-state" class="hidden flex flex-col items-center justify-center py-6 text-center bg-slate-50/20 rounded-lg border border-dashed border-slate-200">
+              <i data-lucide="shield-check" class="w-8 h-8 text-emerald-500 mb-2"></i>
+              <p class="text-xs font-bold text-slate-700">All inventories running optimal</p>
+              <p class="text-[10px] text-slate-400 mt-0.5">
+                No stockout risks identified for the current filter criteria
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer id="app-footer" class="bg-white border-t border-slate-200 py-6 text-center text-xs mt-12">
+      <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p id="footer-credits" class="text-slate-400 font-medium">
+          &copy; <span id="year-placeholder">2026</span> Retail Sales Intelligence. Strictly Confidential.
+        </p>
+        <div class="flex items-center gap-2 text-slate-400 font-mono text-[10px] font-bold uppercase">
+          <i data-lucide="app-window" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span>Secure Connection</span>
+          <span>&bull;</span>
+          <span>ISO-27001 Certified</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- App State and Processing Scripts -->
+    <script>
+      // Set year dynamically
+      document.getElementById("year-placeholder").innerText = new Date().getFullYear();
+
+      // Sample dataset generation
+      const fallbackStores = [
+        { storeId: "S001", storeName: "Metro Plaza", region: "North", city: "New York", storeFormat: "Supermarket", salesTarget: 180000 },
+        { storeId: "S002", storeName: "Sunset Blvd", region: "West", city: "Los Angeles", storeFormat: "Hypermarket", salesTarget: 250000 },
+        { storeId: "S003", storeName: "Magnolia Mall", region: "South", city: "Miami", storeFormat: "Express", salesTarget: 95000 },
+        { storeId: "S004", storeName: "Loop Center", region: "East", city: "Chicago", storeFormat: "Supermarket", salesTarget: 170000 },
+        { storeId: "S005", storeName: "Galleria Mall", region: "West", city: "San Francisco", storeFormat: "Boutique", salesTarget: 130000 },
+        { storeId: "S006", storeName: "Riverwalk Outlet", region: "South", city: "Houston", storeFormat: "Hypermarket", salesTarget: 210000 },
+        { storeId: "S007", storeName: "Beacon Hub", region: "North", city: "Boston", storeFormat: "Express", salesTarget: 80000 },
+        { storeId: "S008", storeName: "Peachtree Square", region: "East", city: "Atlanta", storeFormat: "Boutique", salesTarget: 110000 }
+      ];
+
+      const categories = ["Electronics", "Apparel", "Groceries", "Home & Kitchen", "Beauty"];
+      const weeks = ["Week 1", "Week 2", "Week 3", "Week 4"];
+      const baseSalesByStoreCategory = {
+        S001: {
+          Electronics: { gross: 12000, retRate: 0.08, discRate: 0.05, trans: 80 },
+          Apparel: { gross: 8000, retRate: 0.12, discRate: 0.10, trans: 110 },
+          Groceries: { gross: 15000, retRate: 0.01, discRate: 0.02, trans: 300 },
+          "Home & Kitchen": { gross: 6000, retRate: 0.06, discRate: 0.08, trans: 50 },
+          Beauty: { gross: 4000, retRate: 0.05, discRate: 0.04, trans: 90 }
+        },
+        S002: {
+          Electronics: { gross: 22000, retRate: 0.07, discRate: 0.06, trans: 140 },
+          Apparel: { gross: 15000, retRate: 0.14, discRate: 0.12, trans: 190 },
+          Groceries: { gross: 20000, retRate: 0.01, discRate: 0.03, trans: 410 },
+          "Home & Kitchen": { gross: 11000, retRate: 0.05, discRate: 0.07, trans: 95 },
+          Beauty: { gross: 8000, retRate: 0.06, discRate: 0.05, trans: 160 }
+        },
+        S003: {
+          Electronics: { gross: 3000, retRate: 0.09, discRate: 0.04, trans: 25 },
+          Apparel: { gross: 4000, retRate: 0.18, discRate: 0.15, trans: 65 },
+          Groceries: { gross: 8000, retRate: 0.02, discRate: 0.01, trans: 180 },
+          "Home & Kitchen": { gross: 2500, retRate: 0.08, discRate: 0.05, trans: 30 },
+          Beauty: { gross: 2000, retRate: 0.07, discRate: 0.06, trans: 50 }
+        },
+        S004: {
+          Electronics: { gross: 11000, retRate: 0.06, discRate: 0.05, trans: 75 },
+          Apparel: { gross: 9000, retRate: 0.11, discRate: 0.08, trans: 120 },
+          Groceries: { gross: 14000, retRate: 0.01, discRate: 0.02, trans: 280 },
+          "Home & Kitchen": { gross: 7000, retRate: 0.05, discRate: 0.06, trans: 60 },
+          Beauty: { gross: 5000, retRate: 0.04, discRate: 0.03, trans: 100 }
+        },
+        S005: {
+          Electronics: { gross: 6000, retRate: 0.05, discRate: 0.08, trans: 40 },
+          Apparel: { gross: 14000, retRate: 0.13, discRate: 0.15, trans: 150 },
+          Groceries: { gross: 2000, retRate: 0.01, discRate: 0.02, trans: 50 },
+          "Home & Kitchen": { gross: 5000, retRate: 0.06, discRate: 0.10, trans: 45 },
+          Beauty: { gross: 9000, retRate: 0.05, discRate: 0.05, trans: 130 }
+        },
+        S006: {
+          Electronics: { gross: 14000, retRate: 0.08, discRate: 0.05, trans: 90 },
+          Apparel: { gross: 10000, retRate: 0.15, discRate: 0.11, trans: 140 },
+          Groceries: { gross: 22000, retRate: 0.02, discRate: 0.03, trans: 450 },
+          "Home & Kitchen": { gross: 9000, retRate: 0.07, discRate: 0.06, trans: 80 },
+          Beauty: { gross: 6000, retRate: 0.05, discRate: 0.04, trans: 110 }
+        },
+        S007: {
+          Electronics: { gross: 5000, retRate: 0.07, discRate: 0.03, trans: 35 },
+          Apparel: { gross: 6000, retRate: 0.12, discRate: 0.08, trans: 85 },
+          Groceries: { gross: 9000, retRate: 0.01, discRate: 0.02, trans: 200 },
+          "Home & Kitchen": { gross: 3500, retRate: 0.05, discRate: 0.05, trans: 30 },
+          Beauty: { gross: 3000, retRate: 0.04, discRate: 0.04, trans: 70 }
+        },
+        S008: {
+          Electronics: { gross: 4000, retRate: 0.09, discRate: 0.06, trans: 30 },
+          Apparel: { gross: 7000, retRate: 0.16, discRate: 0.14, trans: 95 },
+          Groceries: { gross: 3000, retRate: 0.02, discRate: 0.03, trans: 70 },
+          "Home & Kitchen": { gross: 4000, retRate: 0.08, discRate: 0.08, trans: 40 },
+          Beauty: { gross: 5000, retRate: 0.05, discRate: 0.05, trans: 100 }
+        }
+      };
+
+      const weekMultipliers = {
+        "Week 1": 0.95,
+        "Week 2": 1.00,
+        "Week 3": 1.15,
+        "Week 4": 0.90
+      };
+
+      const getStockoutRiskVal = (storeId, category, week) => {
+        if (storeId === "S003" && category === "Groceries" && week === "Week 4") return "High";
+        if (storeId === "S008" && category === "Electronics" && week === "Week 3") return "High";
+        if (storeId === "S001" && category === "Home & Kitchen" && week === "Week 2") return "Medium";
+        if (storeId === "S002" && category === "Apparel" && week === "Week 4") return "Medium";
+        if (storeId === "S006" && category === "Beauty" && week === "Week 1") return "Low";
+        return "None";
+      };
+
+      // Built sample weekly sales rows
+      const fallbackWeeklySales = [];
+      weeks.forEach(week => {
+        const mult = weekMultipliers[week];
+        fallbackStores.forEach(store => {
+          const storeBase = baseSalesByStoreCategory[store.storeId];
+          if (storeBase) {
+            categories.forEach(cat => {
+              const base = storeBase[cat];
+              if (base) {
+                const hash = (store.storeId.charCodeAt(3) + cat.charCodeAt(0) + week.charCodeAt(5)) % 10;
+                const variance = 1 + (hash - 5) * 0.02;
+                const gross = Math.round(base.gross * mult * variance);
+                const retAmount = Math.round(gross * base.retRate * (1 + (hash - 5) * 0.05));
+                const discAmount = Math.round(gross * base.discRate * (1 + (hash - 5) * 0.03));
+                const trans = Math.round(base.trans * mult * variance);
+                const stockoutRisk = getStockoutRiskVal(store.storeId, cat, week);
+
+                fallbackWeeklySales.push({
+                  week,
+                  storeId: store.storeId,
+                  category: cat,
+                  grossSales: gross,
+                  returnAmount: retAmount,
+                  discountAmount: discAmount,
+                  transactions: trans,
+                  stockoutRisk
+                });
+              }
+            });
+          }
+        });
+      });
+
+      // App state
+      let appState = {
+        stores: JSON.parse(JSON.stringify(fallbackStores)),
+        weeklySales: JSON.parse(JSON.stringify(fallbackWeeklySales)),
+        filters: {
+          week: "All",
+          region: "All",
+          storeId: "All",
+          city: "All",
+          storeFormat: "All",
+          category: "All"
+        },
+        salesLoaded: null, // metadata of custom load
+        storesLoaded: null,
+        isUsingFallback: true
+      };
+
+      // Chart globals
+      let lineChart = null;
+      let regionChart = null;
+      let categoryChart = null;
+      let leaderboardChart = null;
+
+      // Initialize dashboard
+      window.addEventListener("DOMContentLoaded", () => {
+        lucide.createIcons();
+        initDashboard();
+      });
+
+      function initDashboard() {
+        populateFilters();
+        renderDashboard();
+      }
+
+      // Drag and drop setup for file upload zones
+      const preventDefaults = (e) => { e.preventDefault(); e.stopPropagation(); };
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        document.getElementById('sales-dropzone').addEventListener(eventName, preventDefaults, false);
+        document.getElementById('stores-dropzone').addEventListener(eventName, preventDefaults, false);
+      });
+
+      document.getElementById('sales-dropzone').addEventListener('dragenter', () => {
+        document.getElementById('sales-dropzone').classList.add('border-indigo-400', 'bg-indigo-50/10');
+      });
+      document.getElementById('sales-dropzone').addEventListener('dragleave', () => {
+        document.getElementById('sales-dropzone').classList.remove('border-indigo-400', 'bg-indigo-50/10');
+      });
+      document.getElementById('sales-dropzone').addEventListener('drop', (e) => {
+        document.getElementById('sales-dropzone').classList.remove('border-indigo-400', 'bg-indigo-50/10');
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) {
+          const fileInput = document.getElementById('sales-file-input');
+          fileInput.files = files;
+          handleSalesUpload({ target: fileInput });
+        }
+      });
+
+      document.getElementById('stores-dropzone').addEventListener('dragenter', () => {
+        document.getElementById('stores-dropzone').classList.add('border-indigo-400', 'bg-indigo-50/10');
+      });
+      document.getElementById('stores-dropzone').addEventListener('dragleave', () => {
+        document.getElementById('stores-dropzone').classList.remove('border-indigo-400', 'bg-indigo-50/10');
+      });
+      document.getElementById('stores-dropzone').addEventListener('drop', (e) => {
+        document.getElementById('stores-dropzone').classList.remove('border-indigo-400', 'bg-indigo-50/10');
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) {
+          const fileInput = document.getElementById('stores-file-input');
+          fileInput.files = files;
+          handleStoresUpload({ target: fileInput });
+        }
+      });
+
+      // Parse Sheet Helpers
+      function parseSheet(file, callback) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            callback(null, jsonData);
+          } catch (err) {
+            callback(err, null);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      // Safe column extractor
+      function extractColumn(row, candidates) {
+        for (const candidate of candidates) {
+          const normalizedCandidate = candidate.toLowerCase().replace(/[\s_]/g, "");
+          for (const key of Object.keys(row)) {
+            const normalizedKey = key.toLowerCase().replace(/[\s_]/g, "");
+            if (normalizedKey === normalizedCandidate) {
+              return row[key];
+            }
+          }
+        }
+        return undefined;
+      }
+
+      // Handle Sales Excel Upload
+      function handleSalesUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        parseSheet(file, (err, rows) => {
+          const zone = document.getElementById('sales-dropzone');
+          const content = document.getElementById('sales-zone-content');
+
+          if (err || !rows || rows.length === 0) {
+            zone.className = "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-red-200 bg-red-50/30";
+            content.innerHTML = `
+              <i data-lucide="alert-circle" class="w-6 h-6 text-red-500 mx-auto mb-2 animate-bounce"></i>
+              <p class="text-xs font-bold text-slate-800">${file.name}</p>
+              <p class="text-[10px] text-red-600 mt-1 font-bold">Failed to read file rows</p>
+              <p class="text-[9px] text-slate-400 mt-2 font-semibold">Click to try again</p>
+            `;
+            lucide.createIcons();
+            return;
+          }
+
+          // Parse rows to standard
+          const parsed = rows.map(r => {
+            return {
+              week: String(extractColumn(r, ["week", "period"]) || "Week 1"),
+              storeId: String(extractColumn(r, ["storeid", "store_id", "store", "id"]) || ""),
+              category: String(extractColumn(r, ["category", "productcategory", "product_category", "dept"]) || "General"),
+              grossSales: Number(extractColumn(r, ["grosssales", "gross_sales", "sales", "gross"]) || 0),
+              returnAmount: Number(extractColumn(r, ["returnamount", "return_amount", "returns", "refunds"]) || 0),
+              discountAmount: Number(extractColumn(r, ["discountamount", "discount_amount", "discounts", "markdowns"]) || 0),
+              transactions: Number(extractColumn(r, ["transactions", "trans", "receipts", "count"]) || 1),
+              stockoutRisk: String(extractColumn(r, ["stockoutrisk", "stockout_risk", "stock_risk", "alert"]) || "None")
+            };
+          }).filter(p => p.storeId);
+
+          if (parsed.length === 0) {
+            zone.className = "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-red-200 bg-red-50/30";
+            content.innerHTML = `
+              <i data-lucide="alert-circle" class="w-6 h-6 text-red-500 mx-auto mb-2 animate-bounce"></i>
+              <p class="text-xs font-bold text-slate-800">${file.name}</p>
+              <p class="text-[10px] text-red-600 mt-1 font-bold">No valid Store ID column found</p>
+              <p class="text-[9px] text-slate-400 mt-2 font-semibold">Click to try again</p>
+            `;
+            lucide.createIcons();
+            return;
+          }
+
+          appState.weeklySales = parsed;
+          appState.salesLoaded = { name: file.name, count: parsed.length };
+          appState.isUsingFallback = false;
+
+          zone.className = "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-emerald-200 bg-emerald-50/20";
+          content.innerHTML = `
+            <i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-500 mx-auto mb-2"></i>
+            <p class="text-xs font-bold text-slate-800 truncate w-full max-w-[200px]">${file.name}</p>
+            <p class="text-[10px] text-emerald-600 mt-1 font-bold">Successfully Loaded ${parsed.length} records!</p>
+            <p class="text-[9px] text-slate-400 mt-2 font-semibold">Click to replace file</p>
+          `;
+          lucide.createIcons();
+          updateBanner();
+          initDashboard();
+        });
+      }
+
+      // Handle Store Master Excel Upload
+      function handleStoresUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        parseSheet(file, (err, rows) => {
+          const zone = document.getElementById('stores-dropzone');
+          const content = document.getElementById('stores-zone-content');
+
+          if (err || !rows || rows.length === 0) {
+            zone.className = "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-red-200 bg-red-50/30";
+            content.innerHTML = `
+              <i data-lucide="alert-circle" class="w-6 h-6 text-red-500 mx-auto mb-2 animate-bounce"></i>
+              <p class="text-xs font-bold text-slate-800">${file.name}</p>
+              <p class="text-[10px] text-red-600 mt-1 font-bold">Failed to read file rows</p>
+              <p class="text-[9px] text-slate-400 mt-2 font-semibold">Click to try again</p>
+            `;
+            lucide.createIcons();
+            return;
+          }
+
+          // Parse rows to standard
+          const parsed = rows.map(r => {
+            return {
+              storeId: String(extractColumn(r, ["storeid", "store_id", "store", "id"]) || ""),
+              storeName: String(extractColumn(r, ["storename", "store_name", "name"]) || "Unnamed Store"),
+              region: String(extractColumn(r, ["region", "area", "zone"]) || "Other"),
+              city: String(extractColumn(r, ["city", "location"]) || "Other"),
+              storeFormat: String(extractColumn(r, ["storeformat", "store_format", "format", "type"]) || "Standard"),
+              salesTarget: Number(extractColumn(r, ["salestarget", "sales_target", "target", "goaltarget"]) || 0)
+            };
+          }).filter(p => p.storeId);
+
+          if (parsed.length === 0) {
+            zone.className = "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-red-200 bg-red-50/30";
+            content.innerHTML = `
+              <i data-lucide="alert-circle" class="w-6 h-6 text-red-500 mx-auto mb-2 animate-bounce"></i>
+              <p class="text-xs font-bold text-slate-800">${file.name}</p>
+              <p class="text-[10px] text-red-600 mt-1 font-bold">No valid Store ID column found</p>
+              <p class="text-[9px] text-slate-400 mt-2 font-semibold">Click to try again</p>
+            `;
+            lucide.createIcons();
+            return;
+          }
+
+          appState.stores = parsed;
+          appState.storesLoaded = { name: file.name, count: parsed.length };
+          appState.isUsingFallback = false;
+
+          zone.className = "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-emerald-200 bg-emerald-50/20";
+          content.innerHTML = `
+            <i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-500 mx-auto mb-2"></i>
+            <p class="text-xs font-bold text-slate-800 truncate w-full max-w-[200px]">${file.name}</p>
+            <p class="text-[10px] text-emerald-600 mt-1 font-bold">Successfully Loaded ${parsed.length} store locations!</p>
+            <p class="text-[9px] text-slate-400 mt-2 font-semibold">Click to replace file</p>
+          `;
+          lucide.createIcons();
+          updateBanner();
+          initDashboard();
+        });
+      }
+
+      // Reset to Fallback Sample Data
+      function resetToSample() {
+        appState = {
+          stores: JSON.parse(JSON.stringify(fallbackStores)),
+          weeklySales: JSON.parse(JSON.stringify(fallbackWeeklySales)),
+          filters: {
+            week: "All",
+            region: "All",
+            storeId: "All",
+            city: "All",
+            storeFormat: "All",
+            category: "All"
+          },
+          salesLoaded: null,
+          storesLoaded: null,
+          isUsingFallback: true
+        };
+
+        // Reset Dropzones UI
+        document.getElementById('sales-dropzone').className = "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-slate-200 hover:border-indigo-300 hover:bg-slate-50/30";
+        document.getElementById('sales-zone-content').innerHTML = `
+          <i data-lucide="upload" class="w-6 h-6 text-slate-400 mx-auto mb-2 transition-colors"></i>
+          <p class="text-xs font-bold text-slate-600 text-center">Click or drag file to upload</p>
+          <p class="text-[10px] text-slate-400 mt-0.5 text-center">Supports weekly_sales (.xlsx, .xls, .csv)</p>
+        `;
+
+        document.getElementById('stores-dropzone').className = "flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all border-slate-200 hover:border-indigo-300 hover:bg-slate-50/30";
+        document.getElementById('stores-zone-content').innerHTML = `
+          <i data-lucide="upload" class="w-6 h-6 text-slate-400 mx-auto mb-2 transition-colors"></i>
+          <p class="text-xs font-bold text-slate-600 text-center">Click or drag file to upload</p>
+          <p class="text-[10px] text-slate-400 mt-0.5 text-center">Supports store_master (.xlsx, .xls, .csv)</p>
+        `;
+
+        document.getElementById('sales-file-input').value = "";
+        document.getElementById('stores-file-input').value = "";
+
+        lucide.createIcons();
+        updateBanner();
+        initDashboard();
+      }
+
+      // Update Banner UI
+      function updateBanner() {
+        const banner = document.getElementById('fallback-data-banner');
+        const text = document.getElementById('banner-text');
+
+        if (appState.isUsingFallback) {
+          banner.className = "mt-3 flex items-center gap-2 px-3 py-2.5 bg-indigo-50/50 rounded-lg border border-indigo-100 text-indigo-900 text-[11px] font-medium";
+          text.innerHTML = `<strong>Running on pre-loaded fallback data:</strong> The dashboard is fully functional. Currently tracking <strong>160 weekly sales records</strong> across <strong>8 store master locations</strong>. Upload spreadsheets to analyze live data.`;
+        } else {
+          banner.className = "mt-3 flex items-center gap-2 px-3 py-2.5 bg-emerald-50 text-emerald-900 rounded-lg border border-emerald-100 text-[11px] font-medium";
+          const salesStr = appState.salesLoaded ? `Custom Sales: <strong>${appState.weeklySales.length} rows</strong>` : `Sample Sales: <strong>${appState.weeklySales.length} rows</strong>`;
+          const storesStr = appState.storesLoaded ? `Custom Stores: <strong>${appState.stores.length} stores</strong>` : `Sample Stores: <strong>${appState.stores.length} stores</strong>`;
+          text.innerHTML = `<strong>Live Custom Source Active:</strong> Fully integrated dataset consisting of ${salesStr} and ${storesStr}. Adjust drop-downs to refine dynamically.`;
+        }
+      }
+
+      // Populate filters dynamically based on current store/sales lists
+      function populateFilters() {
+        const uniqueWeeks = [...new Set(appState.weeklySales.map(s => s.week))].sort();
+        const uniqueCategories = [...new Set(appState.weeklySales.map(s => s.category))].sort();
+        const uniqueRegions = [...new Set(appState.stores.map(st => st.region))].sort();
+        const uniqueStores = [...new Set(appState.stores.map(st => st.storeId))].sort();
+        const uniqueCities = [...new Set(appState.stores.map(st => st.city))].sort();
+        const uniqueFormats = [...new Set(appState.stores.map(st => st.storeFormat))].sort();
+
+        updateSelectOptions("filter-week", uniqueWeeks, appState.filters.week, "All Weeks");
+        updateSelectOptions("filter-region", uniqueRegions, appState.filters.region, "All Regions");
+        updateSelectOptions("filter-store", uniqueStores, appState.filters.storeId, "All Stores");
+        updateSelectOptions("filter-city", uniqueCities, appState.filters.city, "All Cities");
+        updateSelectOptions("filter-format", uniqueFormats, appState.filters.storeFormat, "All Formats");
+        updateSelectOptions("filter-category", uniqueCategories, appState.filters.category, "All Categories");
+      }
+
+      function updateSelectOptions(elementId, list, currentValue, allLabel) {
+        const el = document.getElementById(elementId);
+        // keep "All" as first option
+        el.innerHTML = `<option value="All">${allLabel}</option>`;
+        list.forEach(item => {
+          const selectedAttr = item === currentValue ? "selected" : "";
+          el.innerHTML += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+        });
+      }
+
+      // Handle select changes
+      function setFilter(key, val) {
+        appState.filters[key] = val;
+        renderDashboard();
+      }
+
+      // Clear all active filters
+      function clearFilters() {
+        appState.filters = {
+          week: "All",
+          region: "All",
+          storeId: "All",
+          city: "All",
+          storeFormat: "All",
+          category: "All"
+        };
+        populateFilters();
+        renderDashboard();
+      }
+
+      // Computes Joined Data and Filters it dynamically
+      function getFilteredRecords() {
+        // Map stores lookup for easy join
+        const storeMap = {};
+        appState.stores.forEach(st => {
+          storeMap[st.storeId] = st;
+        });
+
+        // Compute joined records
+        const joined = appState.weeklySales.map(row => {
+          const store = storeMap[row.storeId] || {
+            storeName: `Store ${row.storeId}`,
+            region: "Unknown",
+            city: "Unknown",
+            storeFormat: "Unknown",
+            salesTarget: 0
+          };
+          return {
+            ...row,
+            storeName: store.storeName,
+            region: store.region,
+            city: store.city,
+            storeFormat: store.storeFormat,
+            salesTarget: store.salesTarget
+          };
+        });
+
+        // Filter joined records
+        return joined.filter(row => {
+          const matchWeek = appState.filters.week === "All" || row.week === appState.filters.week;
+          const matchRegion = appState.filters.region === "All" || row.region === appState.filters.region;
+          const matchStore = appState.filters.storeId === "All" || row.storeId === appState.filters.storeId;
+          const matchCity = appState.filters.city === "All" || row.city === appState.filters.city;
+          const matchFormat = appState.filters.storeFormat === "All" || row.storeFormat === appState.filters.storeFormat;
+          const matchCategory = appState.filters.category === "All" || row.category === appState.filters.category;
+
+          return matchWeek && matchRegion && matchStore && matchCity && matchFormat && matchCategory;
+        });
+      }
+
+      // Formatting functions
+      function formatCurrency(val) {
+        return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
+      }
+      function formatPercentage(val) {
+        return `${val.toFixed(1)}%`;
+      }
+
+      // Primary Render Loop
+      function renderDashboard() {
+        const filtered = getFilteredRecords();
+        const totalRows = appState.weeklySales.length;
+        
+        // Show/hide Clear Filters button
+        const activeFiltersCount = Object.values(appState.filters).filter(v => v !== "All").length;
+        const clearBtn = document.getElementById("btn-clear-filters");
+        if (activeFiltersCount > 0) {
+          clearBtn.classList.remove("hidden");
+          document.getElementById("clear-filters-count").innerText = activeFiltersCount;
+        } else {
+          clearBtn.classList.add("hidden");
+        }
+
+        document.getElementById("filter-status-count").innerText = `Showing ${filtered.length} of ${totalRows} records`;
+
+        // Compute core calculations
+        let totalGross = 0;
+        let totalReturns = 0;
+        let totalDiscounts = 0;
+        let totalTransactions = 0;
+
+        filtered.forEach(r => {
+          totalGross += r.grossSales;
+          totalReturns += r.returnAmount;
+          totalDiscounts += r.discountAmount;
+          totalTransactions += r.transactions;
+        });
+
+        const netSales = totalGross - totalReturns;
+        const returnRate = netSales > 0 ? (totalReturns / netSales) * 100 : 0;
+        const discountRate = totalGross > 0 ? (totalDiscounts / totalGross) * 100 : 0;
+        const atv = totalTransactions > 0 ? netSales / totalTransactions : 0;
+
+        // Progress sales target calculation (based on stores in filtered set)
+        const activeStoreIds = [...new Set(filtered.map(r => r.storeId))];
+        let totalTarget = 0;
+        appState.stores.forEach(st => {
+          if (activeStoreIds.includes(st.storeId)) {
+            // Apply scale multiplier if weeks are filtered
+            let weekMult = 1;
+            if (appState.filters.week !== "All") {
+              weekMult = 0.25; // 1 week out of 4 approx
+            }
+            totalTarget += st.salesTarget * weekMult;
+          }
+        });
+        if (totalTarget === 0) {
+          // Fallback targets sum
+          totalTarget = appState.stores.reduce((acc, st) => acc + st.salesTarget, 0) * (appState.filters.week !== "All" ? 0.25 : 1);
+        }
+        const targetAchievement = totalTarget > 0 ? (netSales / totalTarget) * 100 : 0;
+
+        // Render KPI updates
+        document.getElementById("kpi-net-sales-val").innerText = formatCurrency(netSales);
+        document.getElementById("kpi-target-achievement-val").innerText = formatPercentage(targetAchievement);
+        document.getElementById("kpi-target-progress-bar").style.width = `${Math.min(targetAchievement, 100)}%`;
+        
+        // Progress bar color based on accomplishment threshold
+        const bar = document.getElementById("kpi-target-progress-bar");
+        bar.className = `h-full transition-all duration-500 ${
+          targetAchievement >= 100 ? "bg-emerald-500" : targetAchievement >= 80 ? "bg-indigo-500" : "bg-rose-500"
+        }`;
+
+        document.getElementById("kpi-atv-val").innerText = formatCurrency(atv);
+        
+        const retValEl = document.getElementById("kpi-return-rate-val");
+        retValEl.innerText = formatPercentage(returnRate);
+        const retExtraEl = document.getElementById("kpi-return-rate-extra");
+        if (returnRate > 10) {
+          retValEl.className = "text-2xl font-black text-rose-600 tracking-tight font-display";
+          retExtraEl.innerText = "Above 10% Alert";
+          retExtraEl.className = "text-[10px] font-bold mt-1 inline-block text-rose-500 animate-pulse";
+        } else {
+          retValEl.className = "text-2xl font-black text-slate-800 tracking-tight font-display";
+          retExtraEl.innerText = "Within safe threshold";
+          retExtraEl.className = "text-[10px] font-bold mt-1 inline-block text-slate-400";
+        }
+
+        const discValEl = document.getElementById("kpi-discount-rate-val");
+        discValEl.innerText = formatPercentage(discountRate);
+        const discExtraEl = document.getElementById("kpi-discount-rate-extra");
+        if (discountRate > 15) {
+          discValEl.className = "text-2xl font-black text-amber-500 tracking-tight font-display";
+          discExtraEl.innerText = "Above 15% Threshold";
+          discExtraEl.className = "text-[10px] font-bold mt-1 inline-block text-amber-500";
+        } else {
+          discValEl.className = "text-2xl font-black text-slate-800 tracking-tight font-display";
+          discExtraEl.innerText = "Healthy margins";
+          discExtraEl.className = "text-[10px] font-bold mt-1 inline-block text-slate-400";
+        }
+
+        // Compute and Render Automated Insights
+        renderInsights(filtered, activeStoreIds);
+
+        // Render Charts
+        updateCharts(filtered);
+
+        // Render Stockout Risk Table
+        renderStockoutTable(filtered);
+      }
+
+      // Compute & Render Automated Insights
+      function renderInsights(filtered, activeStoreIds) {
+        // Insight 1: Best/Worst Region
+        const regionSales = {};
+        filtered.forEach(r => {
+          regionSales[r.region] = (regionSales[r.region] || 0) + (r.grossSales - r.returnAmount);
+        });
+
+        let bestRegion = { name: "N/A", sales: 0 };
+        let worstRegion = { name: "N/A", sales: Infinity };
+        const regionKeys = Object.keys(regionSales);
+
+        regionKeys.forEach(k => {
+          const sales = regionSales[k];
+          if (sales > bestRegion.sales) {
+            bestRegion = { name: k, sales };
+          }
+          if (sales < worstRegion.sales) {
+            worstRegion = { name: k, sales };
+          }
+        });
+
+        if (regionKeys.length === 0) {
+          document.getElementById("best-region-name").innerText = "No data";
+          document.getElementById("best-region-sales").innerText = "$0";
+          document.getElementById("worst-region-name").innerText = "No data";
+          document.getElementById("worst-region-sales").innerText = "$0";
+        } else {
+          document.getElementById("best-region-name").innerText = bestRegion.name;
+          document.getElementById("best-region-sales").innerText = formatCurrency(bestRegion.sales);
+          document.getElementById("worst-region-name").innerText = worstRegion.name === bestRegion.name && regionKeys.length === 1 ? "N/A" : worstRegion.name;
+          document.getElementById("worst-region-sales").innerText = worstRegion.name === bestRegion.name && regionKeys.length === 1 ? "$0" : formatCurrency(worstRegion.sales);
+        }
+
+        // Insight 2: Underperforming Stores (<80% target achievement)
+        // Group net sales by store
+        const storeNetSales = {};
+        filtered.forEach(r => {
+          storeNetSales[r.storeId] = (storeNetSales[r.storeId] || 0) + (r.grossSales - r.returnAmount);
+        });
+
+        const storeTargetsMap = {};
+        appState.stores.forEach(st => {
+          let weekMult = 1;
+          if (appState.filters.week !== "All") {
+            weekMult = 0.25;
+          }
+          storeTargetsMap[st.storeId] = {
+            name: st.storeName,
+            region: st.region,
+            target: st.salesTarget * weekMult
+          };
+        });
+
+        const underperforming = [];
+        activeStoreIds.forEach(id => {
+          const net = storeNetSales[id] || 0;
+          const targetMeta = storeTargetsMap[id] || { name: `Store ${id}`, region: "Unknown", target: 0 };
+          const achievement = targetMeta.target > 0 ? (net / targetMeta.target) * 100 : 0;
+
+          if (achievement < 80 && targetMeta.target > 0) {
+            underperforming.push({
+              id,
+              name: targetMeta.name,
+              region: targetMeta.region,
+              achievement,
+              target: targetMeta.target
+            });
+          }
+        });
+
+        // Render underperforming
+        const storesBox = document.getElementById("insight-stores-box");
+        storesBox.innerHTML = "";
+        if (underperforming.length > 0) {
+          underperforming.sort((a,b) => a.achievement - b.achievement).forEach(store => {
+            storesBox.innerHTML += `
+              <div class="bg-white p-2.5 rounded border border-slate-200/60 shadow-xs flex items-center justify-between gap-2">
+                <div class="truncate">
+                  <p class="text-xs font-bold text-slate-800 truncate">${store.id} - ${store.name}</p>
+                  <p class="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Region: ${store.region}</p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <span class="inline-block bg-rose-50 border border-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded">
+                    ${store.achievement.toFixed(1)}% Achieve
+                  </span>
+                  <p class="text-[9px] text-slate-400 mt-0.5">Target: $${Math.round(store.target).toLocaleString()}</p>
+                </div>
+              </div>
+            `;
+          });
+        } else {
+          storesBox.innerHTML = `
+            <div class="flex items-center gap-1.5 bg-white p-3 rounded border border-slate-200 text-[11px] text-emerald-700 font-semibold shadow-xs">
+              <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
+              All active stores achieve &gt;= 80% of targets!
+            </div>
+          `;
+          lucide.createIcons();
+        }
+
+        // Insight 3: High Return rate categories (>10%)
+        const catStats = {};
+        filtered.forEach(r => {
+          if (!catStats[r.category]) {
+            catStats[r.category] = { name: r.category, gross: 0, returns: 0 };
+          }
+          catStats[r.category].gross += r.grossSales;
+          catStats[r.category].returns += r.returnAmount;
+        });
+
+        const highReturns = [];
+        Object.keys(catStats).forEach(k => {
+          const stat = catStats[k];
+          const net = stat.gross - stat.returns;
+          const rate = net > 0 ? (stat.returns / net) * 100 : 0;
+          if (rate > 10) {
+            highReturns.push({
+              name: k,
+              rate,
+              returns: stat.returns,
+              netSales: net
+            });
+          }
+        });
+
+        // Render categories box
+        const catsBox = document.getElementById("insight-categories-box");
+        catsBox.innerHTML = "";
+        if (highReturns.length > 0) {
+          highReturns.sort((a,b) => b.rate - a.rate).forEach(cat => {
+            catsBox.innerHTML += `
+              <div class="bg-white p-2.5 rounded border border-slate-200/60 shadow-xs flex items-center justify-between gap-2">
+                <div>
+                  <p class="text-xs font-bold text-slate-800">${cat.name}</p>
+                  <p class="text-[9px] text-slate-500 mt-0.5">
+                    Returned: <span class="font-semibold text-slate-700">$${Math.round(cat.returns).toLocaleString()}</span>
+                  </p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <span class="inline-block bg-rose-50 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-100">
+                    ${cat.rate.toFixed(1)}% Rate
+                  </span>
+                  <p class="text-[9px] text-slate-400 mt-0.5">Net Sales: $${Math.round(cat.netSales).toLocaleString()}</p>
+                </div>
+              </div>
+            `;
+          });
+        } else {
+          catsBox.innerHTML = `
+            <div class="flex items-center gap-1.5 bg-white p-3 rounded border border-slate-200 text-[11px] text-emerald-700 font-semibold shadow-xs">
+              <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
+              No categories have high refunds (&gt;10%)!
+            </div>
+          `;
+          lucide.createIcons();
+        }
+      }
+
+      // Render charts via Chart.js
+      function updateCharts(filtered) {
+        // Destroy existing chart instances before rebuilding
+        if (lineChart) lineChart.destroy();
+        if (regionChart) regionChart.destroy();
+        if (categoryChart) categoryChart.destroy();
+        if (leaderboardChart) leaderboardChart.destroy();
+
+        // Chart 1: Weekly Trend
+        const weeklyMap = {};
+        filtered.forEach(r => {
+          weeklyMap[r.week] = (weeklyMap[r.week] || 0) + (r.grossSales - r.returnAmount);
+        });
+        const trendLabels = Object.keys(weeklyMap).sort();
+        const trendData = trendLabels.map(l => weeklyMap[l]);
+
+        const lineCtx = document.getElementById("lineChartCanvas").getContext("2d");
+        lineChart = new Chart(lineCtx, {
+          type: "line",
+          data: {
+            labels: trendLabels,
+            datasets: [{
+              label: "Net Sales",
+              data: trendData,
+              borderColor: "rgb(79, 70, 229)",
+              backgroundColor: "rgba(79, 70, 229, 0.05)",
+              borderWidth: 2,
+              tension: 0.25,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+              x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+            }
+          }
+        });
+
+        // Chart 2: Regional Performance
+        const regMap = {};
+        filtered.forEach(r => {
+          regMap[r.region] = (regMap[r.region] || 0) + (r.grossSales - r.returnAmount);
+        });
+        const regLabels = Object.keys(regMap).sort();
+        const regData = regLabels.map(l => regMap[l]);
+
+        const regCtx = document.getElementById("regionChartCanvas").getContext("2d");
+        regionChart = new Chart(regCtx, {
+          type: "bar",
+          data: {
+            labels: regLabels,
+            datasets: [{
+              data: regData,
+              backgroundColor: "rgb(99, 102, 241)",
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+              x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+            }
+          }
+        });
+
+        // Chart 3: Category Distribution
+        const catMap = {};
+        filtered.forEach(r => {
+          catMap[r.category] = (catMap[r.category] || 0) + (r.grossSales - r.returnAmount);
+        });
+        const catLabels = Object.keys(catMap);
+        const catData = catLabels.map(l => catMap[l]);
+
+        const catCtx = document.getElementById("categoryChartCanvas").getContext("2d");
+        categoryChart = new Chart(catCtx, {
+          type: "doughnut",
+          data: {
+            labels: catLabels,
+            datasets: [{
+              data: catData,
+              backgroundColor: [
+                "rgb(99, 102, 241)",
+                "rgb(245, 158, 11)",
+                "rgb(16, 185, 129)",
+                "rgb(239, 68, 68)",
+                "rgb(56, 189, 248)"
+              ],
+              borderWidth: 2,
+              borderColor: "#ffffff"
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { boxWidth: 12, font: { size: 10 } }
+              }
+            }
+          }
+        });
+
+        // Chart 4: Horizontal Target Leaderboard
+        const storeNetMap = {};
+        filtered.forEach(r => {
+          storeNetMap[r.storeId] = (storeNetMap[r.storeId] || 0) + (r.grossSales - r.returnAmount);
+        });
+
+        const storeTargetsMap = {};
+        appState.stores.forEach(st => {
+          let weekMult = 1;
+          if (appState.filters.week !== "All") weekMult = 0.25;
+          storeTargetsMap[st.storeId] = st.salesTarget * weekMult;
+        });
+
+        const activeStoreIds = [...new Set(filtered.map(r => r.storeId))];
+        const leaderboardData = activeStoreIds.map(id => {
+          const net = storeNetMap[id] || 0;
+          const target = storeTargetsMap[id] || 0;
+          const achievement = target > 0 ? (net / target) * 100 : 0;
+          return { id, achievement };
+        }).sort((a,b) => b.achievement - a.achievement);
+
+        const leaderLabels = leaderboardData.map(l => l.id);
+        const leaderValues = leaderboardData.map(l => l.achievement);
+        const leaderColors = leaderValues.map(v => v >= 100 ? "rgb(16, 185, 129)" : v >= 80 ? "rgb(99, 102, 241)" : "rgb(239, 68, 68)");
+
+        const leaderCtx = document.getElementById("leaderboardChartCanvas").getContext("2d");
+        leaderboardChart = new Chart(leaderCtx, {
+          type: "bar",
+          data: {
+            labels: leaderLabels,
+            datasets: [{
+              data: leaderValues,
+              backgroundColor: leaderColors,
+              borderRadius: 4
+            }]
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+              y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+            }
+          }
+        });
+      }
+
+      // Render Stockout Risk Table
+      function renderStockoutTable(filtered) {
+        const tableBody = document.getElementById("stockout-table-body");
+        const emptyState = document.getElementById("stockout-empty-state");
+        const countSpan = document.getElementById("stockout-count");
+
+        // Map stores name
+        const storeNames = {};
+        appState.stores.forEach(st => {
+          storeNames[st.storeId] = st.storeName;
+        });
+
+        const stockouts = filtered.filter(r => r.stockoutRisk && r.stockoutRisk !== "None").map(r => {
+          return {
+            storeId: r.storeId,
+            storeName: storeNames[r.storeId] || "Store",
+            category: r.category,
+            week: r.week,
+            risk: r.stockoutRisk,
+            netSales: r.grossSales - r.returnAmount
+          };
+        });
+
+        countSpan.innerText = `${stockouts.length} Active Stock Alerts`;
+
+        if (stockouts.length === 0) {
+          tableBody.innerHTML = "";
+          emptyState.classList.remove("hidden");
+        } else {
+          emptyState.classList.add("hidden");
+          tableBody.innerHTML = "";
+          stockouts.forEach(item => {
+            const isHigh = item.risk === "High";
+            const riskClass = isHigh ? "bg-rose-50 text-rose-700 border border-rose-100" : "bg-amber-50 text-amber-700 border border-amber-100";
+            const recommend = isHigh ? `
+              <span class="text-rose-700 font-bold flex items-center gap-1 text-[10px]">
+                <span class="h-1.5 w-1.5 bg-rose-600 rounded-full animate-pulse flex-shrink-0"></span>
+                Emergency Inventory Transfer Required
+              </span>
+            ` : `
+              <span class="text-amber-700 font-semibold text-[10px]">Reorder / Restock next scheduled cycle</span>
+            `;
+
+            tableBody.innerHTML += `
+              <tr class="hover:bg-slate-50/30 transition-colors">
+                <td class="py-2 px-3 font-bold text-slate-800">
+                  ${item.storeId} - ${item.storeName}
+                </td>
+                <td class="py-2 px-3 text-slate-600">${item.category}</td>
+                <td class="py-2 px-3 text-slate-400 font-mono text-[10px]">${item.week}</td>
+                <td class="py-2 px-3 text-center">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold uppercase rounded ${riskClass}">
+                    <i data-lucide="alert-triangle" class="w-2.5 h-2.5 flex-shrink-0"></i>
+                    ${item.risk} Risk
+                  </span>
+                </td>
+                <td class="py-2 px-3 text-right font-mono text-slate-950 font-bold">
+                  $${Math.round(item.netSales).toLocaleString()}
+                </td>
+                <td class="py-2 px-3">
+                  ${recommend}
+                </td>
+              </tr>
+            `;
+          });
+          lucide.createIcons();
+        }
+      }
+
+      // Download Templates Generator programmatically
+      function downloadTemplate(type) {
+        let headers, data;
+        if (type === "sales") {
+          headers = ["Week", "Store ID", "Category", "Gross Sales", "Return Amount", "Discount Amount", "Transactions", "Stockout Risk"];
+          data = [
+            ["Week 1", "S001", "Electronics", 15000, 1200, 750, 100, "None"],
+            ["Week 1", "S001", "Apparel", 8000, 960, 800, 110, "None"],
+            ["Week 1", "S002", "Electronics", 25000, 1750, 1500, 160, "None"],
+            ["Week 1", "S003", "Groceries", 12000, 120, 120, 250, "High"],
+            ["Week 1", "S004", "Beauty", 9000, 360, 270, 110, "None"],
+            ["Week 1", "S005", "Electronics", 11000, 550, 880, 80, "None"],
+            ["Week 2", "S001", "Electronics", 16000, 1280, 800, 110, "None"],
+            ["Week 2", "S002", "Apparel", 14000, 1960, 1680, 180, "Medium"],
+            ["Week 3", "S008", "Electronics", 5000, 450, 300, 40, "High"]
+          ];
+        } else {
+          headers = ["Store ID", "Store Name", "Region", "City", "Store Format", "Sales Target"];
+          data = [
+            ["S001", "Metro Plaza", "North", "New York", "Supermarket", 180000],
+            ["S002", "Sunset Blvd", "West", "Los Angeles", "Hypermarket", 250000],
+            ["S003", "Magnolia Mall", "South", "Miami", "Express", 95000],
+            ["S004", "Loop Center", "East", "Chicago", "Supermarket", 170000],
+            ["S005", "Galleria Mall", "West", "San Francisco", "Boutique", 130000],
+            ["S006", "Riverwalk Outlet", "South", "Houston", "Hypermarket", 210000],
+            ["S007", "Beacon Hub", "North", "Boston", "Express", 80000],
+            ["S008", "Peachtree Square", "East", "Atlanta", "Boutique", 110000]
+          ];
+        }
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, `${type}_template.xlsx`);
+      }
+
+      // Export CSV Summary
+      function exportCSV() {
+        const filtered = getFilteredRecords();
+        if (filtered.length === 0) return;
+
+        // Construct rows
+        const headers = ["Week", "Store ID", "Store Name", "Region", "City", "Store Format", "Category", "Gross Sales", "Return Amount", "Net Sales", "Discount Amount", "Transactions", "Stockout Risk"];
+        const csvRows = [headers.join(",")];
+
+        filtered.forEach(r => {
+          const net = r.grossSales - r.returnAmount;
+          const line = [
+            `"${r.week}"`,
+            `"${r.storeId}"`,
+            `"${r.storeName.replace(/"/g, '""')}"`,
+            `"${r.region}"`,
+            `"${r.city}"`,
+            `"${r.storeFormat}"`,
+            `"${r.category}"`,
+            r.grossSales,
+            r.returnAmount,
+            net,
+            r.discountAmount,
+            r.transactions,
+            `"${r.stockoutRisk}"`
+          ];
+          csvRows.push(line.join(","));
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `retail_sales_filtered_summary.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    </script>
+  </body>
+</html>
